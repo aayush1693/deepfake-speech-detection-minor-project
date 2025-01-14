@@ -1,0 +1,8 @@
+Flask==2.0.1
+tensorflow==2.6.0
+numpy==1.21.2
+librosa==0.8.1
+matplotlib==3.4.3
+requests==2.26.0
+smtplib==0.0.1
+gradio==2.3.7

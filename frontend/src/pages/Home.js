@@ -1,5 +1,8 @@
 import React from 'react';
-import { Container, Typography, Button, Grid, makeStyles } from '@material-ui/core';
+import { Container, Typography, Button, Grid, Paper, makeStyles } from '@material-ui/core';
+import { useSpring, animated } from 'react-spring';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const useStyles = makeStyles((theme) => ({
   heroSection: {
@@ -22,56 +25,57 @@ const useStyles = makeStyles((theme) => ({
 
 const Home = () => {
   const classes = useStyles();
+  const fadeIn = useSpring({ opacity: 1, from: { opacity: 0 } });
 
   return (
-    <div>
-      <div className={classes.heroSection}>
-        <Container>
-          <Typography variant="h2" component="h1" gutterBottom>
-            Welcome to Deepfake Speech Detection
+    <>
+      <Navbar />
+      <animated.div style={fadeIn} className={classes.heroSection}>
+        <Container maxWidth="lg">
+          <Typography variant="h2" gutterBottom>
+            Uncover the Truth Behind Audio Files
           </Typography>
-          <Typography variant="h5" component="p" gutterBottom>
-            Detect deepfake audio with ease and accuracy.
+          <Typography variant="h5" gutterBottom>
+            Easily detect manipulated or synthetic audio content with our advanced detection tool.
           </Typography>
-          <Button variant="contained" color="secondary" className={classes.ctaButton}>
+          <Button variant="contained" color="secondary" href="/signup" className={classes.ctaButton}>
             Get Started
           </Button>
         </Container>
-      </div>
-      <div className={classes.featuresSection}>
-        <Container>
-          <Typography variant="h4" component="h2" gutterBottom>
-            Features
-          </Typography>
-          <Grid container spacing={4}>
-            <Grid item xs={12} sm={6} md={4} className={classes.featureItem}>
-              <Typography variant="h6" component="h3">
-                Deepfake Detection
-              </Typography>
-              <Typography variant="body1">
-                Analyze audio files to detect deepfake content with high confidence.
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4} className={classes.featureItem}>
-              <Typography variant="h6" component="h3">
-                Audio Transcription
-              </Typography>
-              <Typography variant="body1">
-                Transcribe audio files using advanced machine learning models.
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={6} md={4} className={classes.featureItem}>
-              <Typography variant="h6" component="h3">
-                User-Friendly Interface
-              </Typography>
-              <Typography variant="body1">
-                Enjoy a modern and responsive user interface designed for ease of use.
-              </Typography>
-            </Grid>
+      </animated.div>
+      <Container maxWidth="lg" className={classes.featuresSection}>
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={4}>
+            <Paper className={classes.featureItem}>
+              <Typography variant="h6">Audio Analysis</Typography>
+              <Typography>Analyze audio files for deepfake detection.</Typography>
+            </Paper>
           </Grid>
-        </Container>
-      </div>
-    </div>
+          <Grid item xs={12} md={4}>
+            <Paper className={classes.featureItem}>
+              <Typography variant="h6">Real-Time Results</Typography>
+              <Typography>Get results instantly after uploading your audio file.</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Paper className={classes.featureItem}>
+              <Typography variant="h6">Secure Platform</Typography>
+              <Typography>Your data is safe with us.</Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Container>
+      <Container maxWidth="lg">
+        <Paper style={{ padding: '2rem', margin: '2rem 0' }}>
+          <Typography variant="h4" gutterBottom>
+            Testimonials
+          </Typography>
+          <Typography>"This tool is amazing!" - User A</Typography>
+          <Typography>"Highly recommend for detecting deepfake audio." - User B</Typography>
+        </Paper>
+      </Container>
+      <Footer />
+    </>
   );
 };
 

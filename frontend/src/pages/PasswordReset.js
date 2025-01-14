@@ -1,60 +1,29 @@
-import React, { useState } from 'react';
-import { TextField, Button, Container, Typography, makeStyles } from '@material-ui/core';
+import React from 'react';
+import { Container, Typography, TextField, Button, Link, Paper } from '@material-ui/core';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
-const useStyles = makeStyles((theme) => ({
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginTop: theme.spacing(8),
-  },
-  submit: {
-    margin: theme.spacing(3, 0, 2),
-  },
-}));
-
-const PasswordReset = () => {
-  const classes = useStyles();
-  const [email, setEmail] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Handle password reset logic here
-  };
-
+function PasswordReset() {
   return (
-    <Container component="main" maxWidth="xs">
-      <div className={classes.form}>
-        <Typography component="h1" variant="h5">
-          Password Reset
-        </Typography>
-        <form onSubmit={handleSubmit}>
-          <TextField
-            variant="outlined"
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            color="primary"
-            className={classes.submit}
-          >
-            Send Password Reset Link
-          </Button>
-        </form>
-      </div>
-    </Container>
+    <>
+      <Navbar />
+      <Container maxWidth="sm">
+        <Paper style={{ padding: '2rem', margin: '2rem 0' }}>
+          <Typography variant="h4" gutterBottom>
+            Password Reset
+          </Typography>
+          <form>
+            <TextField label="Email" fullWidth margin="normal" />
+            <Button variant="contained" color="primary" fullWidth>
+              Send Reset Link
+            </Button>
+            <Link href="/login">Return to Login</Link>
+          </form>
+        </Paper>
+      </Container>
+      <Footer />
+    </>
   );
-};
+}
 
 export default PasswordReset;
