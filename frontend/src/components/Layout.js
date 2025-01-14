@@ -1,7 +1,6 @@
 import React from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
-import Footer from '../components/Footer';
 import { makeStyles } from '@material-ui/core/styles';
 
 const useStyles = makeStyles((theme) => ({
@@ -19,7 +18,6 @@ export default function Layout({ children }) {
       <Header />
       <Sidebar />
       <main className={classes.main}>{children}</main>
-      <Footer />
     </>
   );
 }

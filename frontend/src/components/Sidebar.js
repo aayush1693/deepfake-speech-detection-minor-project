@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Drawer, List, ListItem, ListItemText, makeStyles, IconButton } from '@material-ui/core';
 import { Link } from 'react-router-dom';
 import MenuIcon from '@material-ui/icons/Menu';
+import { useTheme } from '@material-ui/core/styles';
 
 const useStyles = makeStyles((theme) => ({
   drawer: {
@@ -30,6 +31,7 @@ const useStyles = makeStyles((theme) => ({
 
 const Sidebar = () => {
   const classes = useStyles();
+  const theme = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleDrawerToggle = () => {
