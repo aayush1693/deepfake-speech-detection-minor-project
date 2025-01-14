@@ -1,35 +1,33 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Link, makeStyles } from '@material-ui/core';
+import { Container, Typography, Link, makeStyles } from '@material-ui/core';
 
 const useStyles = makeStyles((theme) => ({
   footer: {
-    top: 'auto',
-    bottom: 0,
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    padding: theme.spacing(2),
+    padding: theme.spacing(3, 2),
+    marginTop: 'auto',
+    backgroundColor: theme.palette.background.paper,
   },
   link: {
-    color: 'inherit',
-    textDecoration: 'none',
     margin: theme.spacing(1),
   },
 }));
 
-const Footer = () => {
+function Footer() {
   const classes = useStyles();
 
   return (
-    <AppBar position="static" className={classes.footer}>
-      <Toolbar>
-        <Typography variant="body1" align="center" style={{ flexGrow: 1 }}>
-          <Link href="/privacy-policy" className={classes.link}>Privacy Policy</Link>
-          <Link href="/terms" className={classes.link}>Terms</Link>
-          <Link href="/contact" className={classes.link}>Contact</Link>
+    <footer className={classes.footer}>
+      <Container maxWidth="lg">
+        <Typography variant="body1">
+          &copy; {new Date().getFullYear()} Deepfake Speech Detection. All rights reserved.
         </Typography>
-      </Toolbar>
-    </AppBar>
+        <Link href="/privacy-policy" className={classes.link}>Privacy Policy</Link>
+        <Link href="/terms-of-service" className={classes.link}>Terms of Service</Link>
+        <Link href="https://facebook.com" target="_blank" className={classes.link}>Facebook</Link>
+        <Link href="https://twitter.com" target="_blank" className={classes.link}>Twitter</Link>
+      </Container>
+    </footer>
   );
-};
+}
 
 export default Footer;

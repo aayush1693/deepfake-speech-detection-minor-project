@@ -1,3 +1,5 @@
+CREATE DATABASE IF NOT EXISTS deepfake_detection;
+USE deepfake_detection;
 CREATE TABLE users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
