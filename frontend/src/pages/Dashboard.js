@@ -5,12 +5,35 @@ import axios from 'axios';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MuiAlert from '@mui/lab/Alert';
+import { makeStyles } from '@material-ui/core/styles';
+import { useTheme } from '@material-ui/core/styles';
+
+const useStyles = makeStyles((theme) => ({
+  container: {
+    marginTop: theme.spacing(4),
+  },
+  paper: {
+    padding: theme.spacing(4),
+    margin: theme.spacing(2, 0),
+  },
+  button: {
+    marginTop: theme.spacing(2),
+  },
+  progress: {
+    marginTop: theme.spacing(2),
+  },
+  historyItem: {
+    marginBottom: theme.spacing(2),
+  },
+}));
 
 function Alert(props) {
   return <MuiAlert elevation={6} variant="filled" {...props} />;
 }
 
 const Dashboard = () => {
+  const classes = useStyles();
+  const theme = useTheme();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -51,8 +74,8 @@ const Dashboard = () => {
   return (
     <>
       <Navbar />
-      <Container maxWidth="lg">
-        <Paper style={{ padding: '2rem', margin: '2rem 0' }}>
+      <Container maxWidth="lg" className={classes.container}>
+        <Paper className={classes.paper}>
           <Typography variant="h4" gutterBottom>
             Dashboard
           </Typography>
@@ -70,13 +93,13 @@ const Dashboard = () => {
             color="primary"
             onClick={handleUpload}
             disabled={loading || files.length === 0}
-            style={{ marginTop: 16 }}
+            className={classes.button}
           >
             {loading ? <CircularProgress size={24} /> : 'Upload'}
           </Button>
           {results && (
             <>
-              <LinearProgress variant="determinate" value={results.confidenceScore * 100} />
+              <LinearProgress variant="determinate" value={results.confidenceScore * 100} className={classes.progress} />
               <Typography variant="h6" gutterBottom>
                 Prediction Score: {results.confidenceScore * 100}%
               </Typography>
@@ -99,7 +122,7 @@ const Dashboard = () => {
             </>
           )}
         </Paper>
-        <Paper style={{ padding: '2rem', margin: '2rem 0' }}>
+        <Paper className={classes.paper}>
           <Typography variant="h4" gutterBottom>
             History
           </Typography>
@@ -108,7 +131,7 @@ const Dashboard = () => {
           ) : (
             <Grid container spacing={2}>
               {history.map((item, index) => (
-                <Grid item key={index} xs={12}>
+                <Grid item key={index} xs={12} className={classes.historyItem}>
                   <Typography>File: {item.fileName}</Typography>
                   <Typography>Confidence Score: {item.confidenceScore}</Typography>
                   <Typography>Transcription: {item.transcription}</Typography>

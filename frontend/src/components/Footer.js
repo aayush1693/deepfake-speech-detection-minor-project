@@ -1,5 +1,6 @@
 import React from 'react';
 import { Container, Typography, Link, makeStyles } from '@material-ui/core';
+import { useTheme } from '@material-ui/core/styles';
 
 const useStyles = makeStyles((theme) => ({
   footer: {
@@ -14,6 +15,7 @@ const useStyles = makeStyles((theme) => ({
 
 function Footer() {
   const classes = useStyles();
+  const theme = useTheme();
 
   return (
     <footer className={classes.footer}>
