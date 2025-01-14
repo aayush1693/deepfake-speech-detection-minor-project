@@ -5,8 +5,15 @@ import librosa
 import matplotlib.pyplot as plt
 import librosa.display
 from tensorflow.keras.models import load_model
+from flask import Flask, request, jsonify
+import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import random
+import os
 
-
+app = Flask(__name__)
 
 # Load the trained model
 model = load_model('deepfake_audio_detection_model.h5')
@@ -40,6 +47,52 @@ def predict_audio(audio_path):
     spectrogram_path = generate_spectrogram(audio_path)
     return classification, prediction_score, spectrogram_path
 
+# Transcription endpoint
+@app.route('/transcribe', methods=['POST'])
+def transcribe_audio():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    file_path = os.path.join('/tmp', file.filename)
+    file.save(file_path)
+
+    # Format the request for Google Gemini API
+    headers = {
+        'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+        'Content-Type': 'audio/wav'
+    }
+    with open(file_path, 'rb') as f:
+        response = requests.post('https://api.google.com/gemini/v1/transcribe', headers=headers, data=f)
+
+    if response.status_code != 200:
+        return jsonify({'error': 'Transcription failed'}), 500
+
+    transcription = response.json().get('transcription', '')
+    return jsonify({'transcription': transcription})
+
+# Two-step verification
+def send_otp(email):
+    otp = random.randint(100000, 999999)
+    msg = MIMEMultipart()
+    msg['From'] = 'parajuli.aayush@outlook.com'
+    msg['To'] = email
+    msg['Subject'] = 'Your OTP Code'
+    body = f'Your OTP code is {otp}'
+    msg.attach(MIMEText(body, 'plain'))
+
+    server = smtplib.SMTP('smtp.outlook.com', 587)
+    server.starttls()
+    server.login('parajuli.aayush@outlook.com', 'Aayush24')
+    text = msg.as_string()
+    server.sendmail('parajuli.aayush@outlook.com', email, text)
+    server.quit()
+
+    return otp
+
 # Main function to test the model in Colab
 def main():
     # Test with a sample audio file
@@ -54,4 +107,5 @@ def main():
     plt.show()
 
 # Run the main function
-main()
+if __name__ == '__main__':
+    app.run(debug=True)
