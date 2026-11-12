@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Container, Typography, Button, Grid, Paper, CircularProgress, LinearProgress, Snackbar } from '@material-ui/core';
 import { DropzoneArea } from 'material-ui-dropzone';
-import axios from 'axios';
+import { analyzeAudio } from '../services/api';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import MuiAlert from '@mui/lab/Alert';
@@ -48,20 +48,12 @@ const Dashboard = () => {
     if (files.length === 0) return;
 
     setLoading(true);
-    const formData = new FormData();
-    formData.append('file', files[0]);
-
     try {
-      const response = await axios.post('/api/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      setResults(response.data);
-      setHistory([...history, response.data]);
+      const result = await analyzeAudio(files[0]);
+      setResults(result);
+      setHistory((previous) => [result, ...previous]);
     } catch (error) {
-      setError('Error uploading file. Please try again.');
+      setError(error.message);
     } finally {
       setLoading(false);
     }
