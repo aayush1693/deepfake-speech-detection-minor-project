@@ -77,19 +77,24 @@ def transcribe_audio():
 
 # Two-step verification
 def send_otp(email):
+    sender = os.getenv('MAIL_USERNAME')
+    password = os.getenv('MAIL_PASSWORD')
+    if not sender or not password:
+        raise RuntimeError('MAIL_USERNAME and MAIL_PASSWORD must be configured')
+
     otp = random.randint(100000, 999999)
     msg = MIMEMultipart()
-    msg['From'] = 'parajuli.aayush@outlook.com'
+    msg['From'] = sender
     msg['To'] = email
     msg['Subject'] = 'Your OTP Code'
     body = f'Your OTP code is {otp}'
     msg.attach(MIMEText(body, 'plain'))
 
-    server = smtplib.SMTP('smtp.outlook.com', 587)
+    server = smtplib.SMTP(os.getenv('MAIL_HOST', 'smtp.outlook.com'), int(os.getenv('MAIL_PORT', 587)))
     server.starttls()
-    server.login('parajuli.aayush@outlook.com', 'Aayush24')
+    server.login(sender, password)
     text = msg.as_string()
-    server.sendmail('parajuli.aayush@outlook.com', email, text)
+    server.sendmail(sender, email, text)
     server.quit()
 
     return otp
