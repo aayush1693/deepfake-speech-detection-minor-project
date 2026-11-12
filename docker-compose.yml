@@ -1,0 +1,62 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: deepfake_detection
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-change-me}
+    volumes:
+      - mysqldata:/var/lib/mysql
+      - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ml-service:
+    build: ./ml-service
+    environment:
+      MODEL_PATH: /app/models/deepfake_audio_detection_model.h5
+      CORS_ORIGINS: http://localhost:3000
+      TRANSCRIBE_API_URL: ${TRANSCRIBE_API_URL:-}
+      TRANSCRIBE_API_TOKEN: ${TRANSCRIBE_API_TOKEN:-}
+    volumes:
+      # Fails fast with a clear error if the weights have not been downloaded.
+      - type: bind
+        source: ./ml-service/deepfake_audio_detection_model.h5
+        target: /app/models/deepfake_audio_detection_model.h5
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/deepfake_detection
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+      - ml-service
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  mysqldata:
