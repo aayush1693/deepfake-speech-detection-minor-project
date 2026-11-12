@@ -1,31 +1,50 @@
-import gradio as gr
-import tensorflow as tf
-import numpy as np
-import librosa
-import matplotlib.pyplot as plt
-import librosa.display
-from tensorflow.keras.models import load_model
-from flask import Flask, request, jsonify
-import requests
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import random
 import os
-import IPython.display as ipd
+import random
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+import librosa
+import librosa.display
+import matplotlib
+
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import requests
+from flask import Flask, jsonify, request
+from tensorflow.keras.models import load_model
+
+from config import config
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = config.MAX_UPLOAD_BYTES
 
-# Load the trained model
-model = load_model('deepfake_audio_detection_model.h5')
+_model = None
+
+
+def get_model():
+    """Load the Keras model on first use.
+
+    Loading lazily means the service can start (and answer /api/health)
+    even when the weights file has not been downloaded yet.
+    """
+    global _model
+    if _model is None:
+        if not os.path.exists(config.MODEL_PATH):
+            raise RuntimeError(f'Model not found at {config.MODEL_PATH}')
+        _model = load_model(config.MODEL_PATH)
+    return _model
+
 
 # Function to preprocess input audio
 def preprocess_input_audio(audio_path):
     audio, sr = librosa.load(audio_path, sr=16000)
     mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
     mfcc_resized = np.resize(mfcc, (128, 128))
-    mfcc_3d = np.stack((mfcc_resized,)*3, axis=-1)
+    mfcc_3d = np.stack((mfcc_resized,) * 3, axis=-1)
     return np.array([mfcc_3d])
+
 
 # Function to generate spectrogram
 def generate_spectrogram(audio_path):
@@ -39,14 +58,26 @@ def generate_spectrogram(audio_path):
     plt.close()
     return 'spectrogram.png'
 
+
 # Function to make prediction
 def predict_audio(audio_path):
     processed_audio = preprocess_input_audio(audio_path)
-    prediction = model.predict(processed_audio)
-    prediction_score = prediction[0][0]
+    prediction = get_model().predict(processed_audio)
+    prediction_score = float(prediction[0][0])
     classification = 'Real' if prediction_score > 0.5 else 'Fake'
     spectrogram_path = generate_spectrogram(audio_path)
     return classification, prediction_score, spectrogram_path
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Liveness probe that also reports whether weights are installed."""
+    return jsonify({
+        'status': 'UP',
+        'service': 'Deepfake Speech Detection ML Service',
+        'model_present': os.path.exists(config.MODEL_PATH),
+    })
+
 
 # Transcription endpoint
 @app.route('/transcribe', methods=['POST'])
@@ -58,22 +89,25 @@ def transcribe_audio():
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
+    if not config.TRANSCRIBE_API_URL or not config.TRANSCRIBE_API_TOKEN:
+        return jsonify({'error': 'Transcription provider is not configured'}), 503
+
     file_path = os.path.join('/tmp', file.filename)
     file.save(file_path)
 
-    # Format the request for Google Gemini API
     headers = {
-        'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
-        'Content-Type': 'audio/wav'
+        'Authorization': f'Bearer {config.TRANSCRIBE_API_TOKEN}',
+        'Content-Type': 'audio/wav',
     }
     with open(file_path, 'rb') as f:
-        response = requests.post('https://api.google.com/gemini/v1/transcribe', headers=headers, data=f)
+        response = requests.post(config.TRANSCRIBE_API_URL, headers=headers, data=f)
 
     if response.status_code != 200:
         return jsonify({'error': 'Transcription failed'}), 500
 
     transcription = response.json().get('transcription', '')
     return jsonify({'transcription': transcription})
+
 
 # Two-step verification
 def send_otp(email):
@@ -99,19 +133,6 @@ def send_otp(email):
 
     return otp
 
-# Main function to test the model in Colab
-def main():
-    # Test with a sample audio file
-    sample_audio_path = '/content/recording13014.wav_norm_mono.wav'
-    classification, prediction_score, spectrogram_path = predict_audio(sample_audio_path)
-    print(f"Classification: {classification}")
-    print(f"Prediction Score: {prediction_score}")
-    ipd.display(ipd.Audio(sample_audio_path)) # Use ipd.display to play audio
-    img = plt.imread(spectrogram_path)
-    plt.imshow(img)
-    plt.axis('off')
-    plt.show()
 
-# Run the main function
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG)
