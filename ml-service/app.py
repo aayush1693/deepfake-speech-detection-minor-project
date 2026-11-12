@@ -5,19 +5,14 @@ import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-import librosa
-import librosa.display
-import matplotlib
-
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
 import requests
 from flask import Flask, jsonify, request
 from tensorflow.keras.models import load_model
 from werkzeug.utils import secure_filename
 
 from config import config
+from preprocessing import generate_spectrogram, preprocess_input_audio
+from validators import allowed_audio_file
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = config.MAX_UPLOAD_BYTES
@@ -39,35 +34,13 @@ def get_model():
     return _model
 
 
-# Function to preprocess input audio
-def preprocess_input_audio(audio_path):
-    audio, sr = librosa.load(audio_path, sr=16000)
-    mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
-    mfcc_resized = np.resize(mfcc, (128, 128))
-    mfcc_3d = np.stack((mfcc_resized,) * 3, axis=-1)
-    return np.array([mfcc_3d])
-
-
-# Function to generate spectrogram
-def generate_spectrogram(audio_path):
-    audio, sr = librosa.load(audio_path, sr=16000)
-    plt.figure(figsize=(10, 4))
-    D = librosa.amplitude_to_db(np.abs(librosa.stft(audio)), ref=np.max)
-    librosa.display.specshow(D, sr=sr, x_axis='time', y_axis='log')
-    plt.colorbar(format='%+2.0f dB')
-    plt.title('Spectrogram')
-    plt.savefig('spectrogram.png')
-    plt.close()
-    return 'spectrogram.png'
-
-
 # Function to make prediction
 def predict_audio(audio_path):
     processed_audio = preprocess_input_audio(audio_path)
     prediction = get_model().predict(processed_audio)
     prediction_score = float(prediction[0][0])
     classification = 'Real' if prediction_score > 0.5 else 'Fake'
-    spectrogram_path = generate_spectrogram(audio_path)
+    spectrogram_path = generate_spectrogram(audio_path, config.UPLOAD_FOLDER)
     return classification, prediction_score, spectrogram_path
 
 
@@ -94,8 +67,7 @@ def predict():
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
-    extension = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-    if extension not in config.ALLOWED_AUDIO_EXTENSIONS:
+    if not allowed_audio_file(file.filename, config.ALLOWED_AUDIO_EXTENSIONS):
         return jsonify({
             'error': 'Unsupported audio format',
             'allowed': sorted(config.ALLOWED_AUDIO_EXTENSIONS),
