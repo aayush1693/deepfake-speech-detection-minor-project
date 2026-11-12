@@ -1,6 +1,7 @@
 import os
 import random
 import smtplib
+import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -14,6 +15,7 @@ import numpy as np
 import requests
 from flask import Flask, jsonify, request
 from tensorflow.keras.models import load_model
+from werkzeug.utils import secure_filename
 
 from config import config
 
@@ -76,6 +78,46 @@ def health_check():
         'status': 'UP',
         'service': 'Deepfake Speech Detection ML Service',
         'model_present': os.path.exists(config.MODEL_PATH),
+    })
+
+
+@app.route('/api/predict', methods=['POST'])
+def predict():
+    """Classify an uploaded audio clip as real or deepfake.
+
+    Expects multipart form data with a single ``file`` field.
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    extension = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if extension not in config.ALLOWED_AUDIO_EXTENSIONS:
+        return jsonify({
+            'error': 'Unsupported audio format',
+            'allowed': sorted(config.ALLOWED_AUDIO_EXTENSIONS),
+        }), 400
+
+    os.makedirs(config.UPLOAD_FOLDER, exist_ok=True)
+    filename = secure_filename(file.filename)
+    audio_path = os.path.join(config.UPLOAD_FOLDER, f'{uuid.uuid4().hex}_{filename}')
+    file.save(audio_path)
+
+    try:
+        classification, confidence, spectrogram_path = predict_audio(audio_path)
+    except RuntimeError as exc:
+        return jsonify({'error': str(exc)}), 503
+    finally:
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+
+    return jsonify({
+        'classification': classification,
+        'confidence': round(confidence, 4),
+        'spectrogram': spectrogram_path,
     })
 
 
