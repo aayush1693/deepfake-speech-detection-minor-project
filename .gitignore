@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# The trained model is ~85 MB; keep it out of version control.
+ml-service/deepfake_audio_detection_model.h5
+ml-service/models/
+
+# Uploaded audio and generated plots
+ml-service/uploads/
+ml-service/spectrogram.png
+
+# Node
+node_modules/
+frontend/build/
+frontend/.cache/
+npm-debug.log*
+
+# Java / Maven
+backend/target/
+*.class
+*.jar
+!backend/.mvn/wrapper/maven-wrapper.jar
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Uploaded profile pictures
+profile-pictures/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
