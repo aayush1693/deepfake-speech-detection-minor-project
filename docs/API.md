@@ -2,7 +2,20 @@
 
 Base URL in development: `http://localhost:5000`
 
-All request bodies are `multipart/form-data`. Error responses share the shape `{ "error": "..." }`.
+All request bodies are `multipart/form-data`.
+
+Every error response keeps the original HTTP status code and uses the same JSON envelope:
+
+```json
+{
+  "error": "Human readable description",
+  "code": "MACHINE_CODE"
+}
+```
+
+`code` is stable for clients to branch on. The possible values are `BAD_REQUEST`, `NOT_FOUND`,
+`METHOD_NOT_ALLOWED`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `INTERNAL_SERVER_ERROR`, and
+`SERVICE_UNAVAILABLE`.
 
 ---
 
@@ -48,15 +61,41 @@ Classify a single audio clip.
 **400** — no file, empty filename, or unsupported extension:
 
 ```json
-{ "error": "Unsupported audio format", "allowed": ["flac", "m4a", "mp3", "ogg", "wav", "webm"] }
+{
+  "error": "Unsupported audio format",
+  "code": "BAD_REQUEST",
+  "allowed": ["flac", "m4a", "mp3", "ogg", "wav", "webm"]
+}
 ```
 
-**413** — payload larger than `MAX_UPLOAD_BYTES` (20 MB default).
+A missing file returns `{ "error": "No file provided", "code": "BAD_REQUEST" }`, and an empty
+filename returns `{ "error": "No file selected", "code": "BAD_REQUEST" }`.
+
+**413** — payload larger than `MAX_UPLOAD_BYTES` (20 MB default):
+
+```json
+{
+  "error": "Payload too large: upload exceeds MAX_UPLOAD_BYTES (20971520 bytes)",
+  "code": "PAYLOAD_TOO_LARGE"
+}
+```
+
+**415** — request body is not `multipart/form-data`:
+
+```json
+{
+  "error": "Unsupported media type: expected multipart/form-data",
+  "code": "UNSUPPORTED_MEDIA_TYPE"
+}
+```
 
 **503** — weights missing:
 
 ```json
-{ "error": "Model not found at deepfake_audio_detection_model.h5" }
+{
+  "error": "Model not found at deepfake_audio_detection_model.h5",
+  "code": "SERVICE_UNAVAILABLE"
+}
 ```
 
 The uploaded file is deleted after inference, whether or not prediction succeeds.

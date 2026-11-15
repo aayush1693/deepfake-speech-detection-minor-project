@@ -5,13 +5,71 @@ import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from flask import Blueprint, Flask, current_app, has_app_context, jsonify, request
+from flask import Blueprint, Flask, abort, current_app, has_app_context, jsonify, request
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 from config import config
 from validators import allowed_audio_file
 
 _model = None
+
+FORM_MIMETYPES = frozenset({'multipart/form-data', 'application/x-www-form-urlencoded'})
+
+
+def error_response(message, code, status):
+    """Return a JSON error envelope with a stable machine-readable code."""
+    return jsonify({'error': message, 'code': code}), status
+
+
+def validate_upload_request():
+    """Enforce the upload limit and reject non-form request bodies."""
+    limit = current_app.config.get('MAX_CONTENT_LENGTH')
+    if limit is not None and request.content_length is not None and request.content_length > limit:
+        raise RequestEntityTooLarge()
+
+    if request.mimetype and request.mimetype not in FORM_MIMETYPES:
+        abort(415, description='Unsupported media type: expected multipart/form-data')
+
+
+def handle_bad_request(error):
+    message = getattr(error, 'description', None) or 'Bad request'
+    return error_response(message, 'BAD_REQUEST', 400)
+
+
+def handle_not_found(error):
+    return error_response('Resource not found', 'NOT_FOUND', 404)
+
+
+def handle_method_not_allowed(error):
+    return error_response('Method not allowed', 'METHOD_NOT_ALLOWED', 405)
+
+
+def handle_request_entity_too_large(error):
+    limit = current_app.config.get('MAX_CONTENT_LENGTH')
+    if limit is None:
+        limit = current_app.config.get('MAX_UPLOAD_BYTES')
+    return error_response(
+        f'Payload too large: upload exceeds MAX_UPLOAD_BYTES ({limit} bytes)',
+        'PAYLOAD_TOO_LARGE',
+        413,
+    )
+
+
+def handle_unsupported_media_type(error):
+    message = getattr(error, 'description', None) or 'Unsupported media type'
+    return error_response(message, 'UNSUPPORTED_MEDIA_TYPE', 415)
+
+
+def handle_internal_server_error(error):
+    original = getattr(error, 'original_exception', None)
+    current_app.logger.error(
+        'Unhandled error processing %s %s',
+        request.method,
+        request.path,
+        exc_info=original if original is not None else True,
+    )
+    return error_response('Internal server error', 'INTERNAL_SERVER_ERROR', 500)
 
 
 def get_model():
@@ -66,18 +124,22 @@ def predict():
 
     Expects multipart form data with a single ``file`` field.
     """
+    validate_upload_request()
+
     if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
+        return error_response('No file provided', 'BAD_REQUEST', 400)
 
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+        return error_response('No file selected', 'BAD_REQUEST', 400)
 
     if not allowed_audio_file(file.filename, current_app.config['ALLOWED_AUDIO_EXTENSIONS']):
-        return jsonify({
+        payload = {
             'error': 'Unsupported audio format',
+            'code': 'BAD_REQUEST',
             'allowed': sorted(current_app.config['ALLOWED_AUDIO_EXTENSIONS']),
-        }), 400
+        }
+        return jsonify(payload), 400
 
     os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
     filename = secure_filename(file.filename)
@@ -89,7 +151,7 @@ def predict():
     try:
         classification, confidence, spectrogram_path = predict_audio(audio_path)
     except RuntimeError as exc:
-        return jsonify({'error': str(exc)}), 503
+        return error_response(str(exc), 'SERVICE_UNAVAILABLE', 503)
     finally:
         if os.path.exists(audio_path):
             os.remove(audio_path)
@@ -104,15 +166,17 @@ def predict():
 # Transcription endpoint
 @api.route('/transcribe', methods=['POST'])
 def transcribe_audio():
+    validate_upload_request()
+
     if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
+        return error_response('No file provided', 'BAD_REQUEST', 400)
 
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+        return error_response('No file selected', 'BAD_REQUEST', 400)
 
     if not current_app.config['TRANSCRIBE_API_URL'] or not current_app.config['TRANSCRIBE_API_TOKEN']:
-        return jsonify({'error': 'Transcription provider is not configured'}), 503
+        return error_response('Transcription provider is not configured', 'SERVICE_UNAVAILABLE', 503)
 
     # Imported lazily so the rest of the service does not depend on requests.
     import requests
@@ -128,7 +192,7 @@ def transcribe_audio():
         response = requests.post(current_app.config['TRANSCRIBE_API_URL'], headers=headers, data=f)
 
     if response.status_code != 200:
-        return jsonify({'error': 'Transcription failed'}), 500
+        return error_response('Transcription failed', 'INTERNAL_SERVER_ERROR', 500)
 
     transcription = response.json().get('transcription', '')
     return jsonify({'transcription': transcription})
@@ -171,6 +235,15 @@ def create_app(config_object=None):
             app.config.from_object(config_object)
 
     app.config['MAX_CONTENT_LENGTH'] = app.config['MAX_UPLOAD_BYTES']
+
+    app.register_error_handler(400, handle_bad_request)
+    app.register_error_handler(404, handle_not_found)
+    app.register_error_handler(405, handle_method_not_allowed)
+    app.register_error_handler(413, handle_request_entity_too_large)
+    app.register_error_handler(RequestEntityTooLarge, handle_request_entity_too_large)
+    app.register_error_handler(415, handle_unsupported_media_type)
+    app.register_error_handler(500, handle_internal_server_error)
+
     app.register_blueprint(api)
     return app
 
