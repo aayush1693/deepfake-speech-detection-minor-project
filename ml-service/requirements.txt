@@ -6,4 +6,5 @@ librosa==0.10.2.post1
 matplotlib==3.8.4
 requests==2.32.3
 python-dotenv==1.0.1
+filetype==1.2.0
 gunicorn==22.0.0

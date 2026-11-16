@@ -10,7 +10,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 from config import config
-from validators import allowed_audio_file
+from validators import allowed_audio_content, allowed_audio_file
 
 _model = None
 
@@ -140,6 +140,13 @@ def predict():
             'allowed': sorted(current_app.config['ALLOWED_AUDIO_EXTENSIONS']),
         }
         return jsonify(payload), 400
+
+    if not allowed_audio_content(
+        file.stream, file.filename, current_app.config['ALLOWED_AUDIO_EXTENSIONS']
+    ):
+        return error_response(
+            'File content is not a supported audio format', 'INVALID_AUDIO_CONTENT', 400
+        )
 
     os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
     filename = secure_filename(file.filename)
