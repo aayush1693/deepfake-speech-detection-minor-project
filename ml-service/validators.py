@@ -1,10 +1,20 @@
-"""Dependency-free request validators for the ML service."""
+"""Request validators for the ML service.
+
+Content and filename checks stay dependency-free. Audio signal checks import
+librosa lazily so validator-only tests do not need the audio stack.
+"""
 
 import os
+from collections import namedtuple
 
 import filetype
 
 ALLOWED_AUDIO_EXTENSIONS = frozenset({'wav', 'mp3', 'flac', 'ogg', 'm4a', 'webm'})
+
+DEFAULT_MIN_AUDIO_SECONDS = 0.5
+DEFAULT_MAX_AUDIO_SECONDS = 30.0
+DEFAULT_MIN_RMS = 1e-4
+TARGET_SAMPLE_RATE = 16000
 
 # The content type detected for each extension. filetype reports M4A files
 # either as their own type or as MP4, because M4A is an MP4 container.
@@ -84,6 +94,75 @@ def allowed_audio_content(file_stream, filename, allowed_extensions=ALLOWED_AUDI
 # Descriptive aliases for callers that prefer the "validate" wording.
 validate_audio_content = allowed_audio_content
 detect_audio_content = detect_audio_type
+
+
+AudioSignalResult = namedtuple('AudioSignalResult', ['duration', 'rms'])
+
+
+class AudioSignalError(ValueError):
+    """ValueError carrying a stable code for a signal-quality failure."""
+
+    def __init__(self, code, message):
+        super().__init__(code)
+        self.code = code
+        self.reason = code
+        self.message = message
+        self.detail = message
+
+
+def _limit(value, env_name, default):
+    if value is not None:
+        return float(value)
+    return float(os.getenv(env_name, default))
+
+
+def validate_audio_signal(
+    path,
+    min_seconds=None,
+    max_seconds=None,
+    min_rms=None,
+):
+    """Check duration, finite samples and loudness for an audio file.
+
+    Audio is loaded as mono at 16 kHz. Raises :class:`AudioSignalError`, a
+    ``ValueError`` subclass, with ``AUDIO_TOO_SHORT``, ``AUDIO_TOO_LONG`` or
+    ``AUDIO_SILENT`` as its code. Returns an :class:`AudioSignalResult` for a
+    valid clip.
+    """
+    # Imported lazily so importing this module never requires the audio stack.
+    import librosa
+    import numpy as np
+
+    minimum = _limit(min_seconds, 'MIN_AUDIO_SECONDS', DEFAULT_MIN_AUDIO_SECONDS)
+    maximum = _limit(max_seconds, 'MAX_AUDIO_SECONDS', DEFAULT_MAX_AUDIO_SECONDS)
+    rms_floor = _limit(min_rms, 'MIN_RMS', DEFAULT_MIN_RMS)
+
+    samples, sample_rate = librosa.load(path, sr=TARGET_SAMPLE_RATE, mono=True)
+    samples = np.asarray(samples, dtype=np.float32)
+
+    if not np.all(np.isfinite(samples)):
+        raise AudioSignalError('AUDIO_SILENT', 'Audio contains non-finite samples')
+
+    duration = float(samples.size) / float(sample_rate)
+    if duration < minimum:
+        raise AudioSignalError(
+            'AUDIO_TOO_SHORT',
+            f'Audio is too short: minimum duration is {minimum:g} seconds',
+        )
+    if duration > maximum:
+        raise AudioSignalError(
+            'AUDIO_TOO_LONG',
+            f'Audio is too long: maximum duration is {maximum:g} seconds',
+        )
+
+    rms = float(np.sqrt(np.mean(np.square(samples)))) if samples.size else 0.0
+    if rms < rms_floor:
+        raise AudioSignalError(
+            'AUDIO_SILENT',
+            f'Audio is silent: RMS {rms:.3g} is below the minimum {rms_floor:g}',
+        )
+
+    return AudioSignalResult(duration=duration, rms=rms)
 
 
 def is_downloadable_model(path):

@@ -10,11 +10,16 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 from config import config
-from validators import allowed_audio_content, allowed_audio_file
+from validators import allowed_audio_content, allowed_audio_file, validate_audio_signal
 
 _model = None
 
 FORM_MIMETYPES = frozenset({'multipart/form-data', 'application/x-www-form-urlencoded'})
+SIGNAL_ERROR_MESSAGES = {
+    'AUDIO_TOO_SHORT': 'Audio is too short',
+    'AUDIO_TOO_LONG': 'Audio is too long',
+    'AUDIO_SILENT': 'Audio is silent or below the minimum signal level',
+}
 
 
 def error_response(message, code, status):
@@ -156,6 +161,20 @@ def predict():
     file.save(audio_path)
 
     try:
+        try:
+            validate_audio_signal(
+                audio_path,
+                min_seconds=current_app.config['MIN_AUDIO_SECONDS'],
+                max_seconds=current_app.config['MAX_AUDIO_SECONDS'],
+                min_rms=current_app.config['MIN_RMS'],
+            )
+        except ValueError as exc:
+            code = getattr(exc, 'code', None) or str(exc)
+            if code not in SIGNAL_ERROR_MESSAGES:
+                raise
+            message = getattr(exc, 'message', None) or SIGNAL_ERROR_MESSAGES[code]
+            return error_response(message, code, 422)
+
         classification, confidence, spectrogram_path = predict_audio(audio_path)
     except RuntimeError as exc:
         return error_response(str(exc), 'SERVICE_UNAVAILABLE', 503)

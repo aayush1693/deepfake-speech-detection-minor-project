@@ -13,7 +13,8 @@ Every error response keeps the original HTTP status code and uses the same JSON 
 }
 ```
 
-`code` is stable for clients to branch on. The possible values are `BAD_REQUEST`, `NOT_FOUND`,
+`code` is stable for clients to branch on. The possible values are `BAD_REQUEST`,
+`INVALID_AUDIO_CONTENT`, `AUDIO_TOO_SHORT`, `AUDIO_TOO_LONG`, `AUDIO_SILENT`, `NOT_FOUND`,
 `METHOD_NOT_ALLOWED`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `INTERNAL_SERVER_ERROR`, and
 `SERVICE_UNAVAILABLE`.
 
@@ -70,6 +71,27 @@ Classify a single audio clip.
 
 A missing file returns `{ "error": "No file provided", "code": "BAD_REQUEST" }`, and an empty
 filename returns `{ "error": "No file selected", "code": "BAD_REQUEST" }`.
+
+A file whose content is not a supported audio container returns:
+
+```json
+{
+  "error": "File content is not a supported audio format",
+  "code": "INVALID_AUDIO_CONTENT"
+}
+```
+
+**422** — audio is too short, too long, or silent. The signal is loaded as mono at 16 kHz and
+checked before the model runs:
+
+```json
+{
+  "error": "Audio is too short: minimum duration is 0.5 seconds",
+  "code": "AUDIO_TOO_SHORT"
+}
+```
+
+The possible codes are `AUDIO_TOO_SHORT`, `AUDIO_TOO_LONG`, and `AUDIO_SILENT`.
 
 **413** — payload larger than `MAX_UPLOAD_BYTES` (20 MB default):
 
@@ -131,5 +153,8 @@ These endpoints require an authenticated session; the username is taken from
 | Setting | Default | Environment variable |
 |---------|---------|----------------------|
 | Max upload | 20 MB | `MAX_UPLOAD_BYTES` |
+| Minimum duration | 0.5 s | `MIN_AUDIO_SECONDS` |
+| Maximum duration | 30 s | `MAX_AUDIO_SECONDS` |
+| Minimum RMS | `1e-4` | `MIN_RMS` |
 | Sample rate | 16 kHz | — (fixed) |
 | Model input | 128 × 128 × 3 | — (fixed) |

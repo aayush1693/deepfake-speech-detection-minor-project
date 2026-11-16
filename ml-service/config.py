@@ -16,6 +16,11 @@ class Config:
     MAX_UPLOAD_BYTES = int(os.getenv('MAX_UPLOAD_BYTES', 20 * 1024 * 1024))
     ALLOWED_AUDIO_EXTENSIONS = {'wav', 'mp3', 'flac', 'ogg', 'm4a', 'webm'}
 
+    # Signal quality
+    MIN_AUDIO_SECONDS = float(os.getenv('MIN_AUDIO_SECONDS', '0.5'))
+    MAX_AUDIO_SECONDS = float(os.getenv('MAX_AUDIO_SECONDS', '30.0'))
+    MIN_RMS = float(os.getenv('MIN_RMS', '1e-4'))
+
     # Server
     HOST = os.getenv('HOST', '0.0.0.0')
     PORT = int(os.getenv('PORT', 5000))

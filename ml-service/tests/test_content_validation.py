@@ -81,6 +81,8 @@ def client(tmp_path, monkeypatch):
         'predict_audio',
         lambda path: ('Real', 0.91, 'uploads/spectrogram.png'),
     )
+    # Signal validation is covered separately and needs the audio stack.
+    monkeypatch.setattr(app_module, 'validate_audio_signal', lambda *args, **kwargs: None)
     application = app_module.create_app({
         'TESTING': True,
         'UPLOAD_FOLDER': str(tmp_path),
